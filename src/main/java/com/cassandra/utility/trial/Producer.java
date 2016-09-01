@@ -36,7 +36,15 @@ public class Producer extends Thread {
         }*/
         this.partitionKey = /*partitionKey.substring(0,partitionKey.length()-1).toString();*/"supc";
         System.out.println("preparing :"+"select * from "+tableIdentifier+" where token("+partitionKey+") >= ? and token("+partitionKey+")< ?");
-        this.boundStatement = new BoundStatement(session.prepare("select * from "+tableIdentifier+" where token("+partitionKey+") >= ? and token("+partitionKey+")< ?"));
+        BoundStatement boundStatement = null;
+        try{
+            boundStatement = new BoundStatement(session.prepare("select * from "+tableIdentifier+" where token("+partitionKey+") >= ? and token("+partitionKey+")< ?"));
+        }catch (Exception e){
+            System.out.println(e);
+            e.printStackTrace();
+            System.exit(1);
+        }
+        this.boundStatement= boundStatement;
         this.boundStatement.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
         this.boundStatement.setFetchSize(5000);
     }

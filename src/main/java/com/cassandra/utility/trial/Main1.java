@@ -16,10 +16,10 @@ public class Main1 {
     public static void main(String... args) throws IOException, InterruptedException {
         if(args.length == 0){
             args=new String [4];
-            args[0]="30.0.3.79";
-            args[1]="cams_team";
-            args[2]="cams0all";
-            args[3]="/home/siddharth/Downloads/describering.txt";
+            args[0]=Credentials.IP;
+            args[1]=Credentials.USERNAME;
+            args[2]=Credentials.PASSWORD;
+            args[3]=Credentials.DESCRIBERING_FILE;
         }
         Trials trials = new Trials(args[0],args[1],args[2],args[3]);
         Map<Host,Cluster> hostClusterMap = trials.getHostToCluster();
