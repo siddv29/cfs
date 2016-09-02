@@ -6,17 +6,14 @@ import com.datastax.driver.core.policies.TokenAwarePolicy;
 
 import java.io.*;
 import java.lang.reflect.Field;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.TreeSet;
+import java.util.*;
 
 /**
  * Created by siddharth on 29/8/16.
  */
 public class Trials {
 //    private final Map<String,String> properties;
-    private final Map<String,HashSet<MyTokenRange>> hostToTokenRange;
+    private final Map<String,/*TreeSet*/HashSet<MyTokenRange>> hostToTokenRange;
     private final Map<Host,Cluster> hostToCluster;
 //    private final String contactPoint;
 //    private final String username;
@@ -28,6 +25,7 @@ public class Trials {
 //        this.password = password;
         hostToTokenRange  = new HashMap<>();
         parseNodetoolDescriberingFile(nodetoolDescriberingFile);
+//        new LocalOnlyPolicy(contactPoint,username,password);
         hostToCluster = initHostToCluster(contactPoint,username,password);
 
     }
@@ -38,8 +36,8 @@ public class Trials {
         LocalOnlyPolicy localOnlyPolicy = new LocalOnlyPolicy(contactPoint,username,password);
         final Map<Host,Cluster> hostToCluster = new HashMap<>();
         for(Host host : LocalOnlyPolicy.getHostsByClusterName(LocalOnlyPolicy.getClusterNameByHostIp(contactPoint))){
-            Cluster individualHostCluster = Cluster.builder().
-                    addContactPoint(contactPoint)
+            Cluster individualHostCluster = Cluster.builder()
+                    .addContactPoint(contactPoint) //OR host.toString().substring(1).split(":")[0]
                     .withQueryOptions(new QueryOptions().setFetchSize(5000))
                     .withCredentials(username, password)
                     .withLoadBalancingPolicy(new LocalOnlyPolicy(host.toString().substring(1).split(":")[0],username,password))
@@ -54,7 +52,7 @@ public class Trials {
         return hostToCluster;
     }
 
-    public Map<String, HashSet<MyTokenRange>> getHostToTokenRange() {
+    public Map<String, /*Set*/HashSet<MyTokenRange>> getHostToTokenRange() {
         return hostToTokenRange;
     }
 
@@ -68,7 +66,7 @@ public class Trials {
             //no sanity done
             MyTokenRange myTokenRange = new MyTokenRange(Long.parseLong(line.split("start_token:")[1].split(",")[0]),Long.parseLong(line.split("end_token:")[1].split(",")[0]));
             String hostIP = line.split("endpoints:")[1].split(",")[0].substring(1);
-            hostToTokenRange.putIfAbsent(hostIP,new HashSet<>());
+            hostToTokenRange.putIfAbsent(hostIP,new /*TreeSet*/HashSet<>());
             hostToTokenRange.get(hostIP).add(myTokenRange);
         }
     }

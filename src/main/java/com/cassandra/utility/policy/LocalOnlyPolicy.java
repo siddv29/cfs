@@ -16,18 +16,24 @@ public class LocalOnlyPolicy implements LoadBalancingPolicy {
 //    private final Iterator<Host> personalHostIterator;
 
 
-    private static Map<String,String> hostIpToClusterName = new HashMap<>();
-    private static Map<String,Set<Host>> clusterNameToHosts = new HashMap<>();
-    private static Map<String,Host> hostIpToHostMap = new HashMap<>();
+    private static final Map<String,String> hostIpToClusterName;
+    private static final Map<String,Set<Host>> clusterNameToHosts;
+    private static final Map<String,Host> hostIpToHostMap;
+    static {
+        hostIpToClusterName = new HashMap<>();
+        clusterNameToHosts =  new HashMap<>();
+        hostIpToHostMap =  new HashMap<>();
+    }
 
     public LocalOnlyPolicy(String personalHostIp, String userName, String password) {
         this.personalHostIp = personalHostIp;
         synchronized (LocalOnlyPolicy.class){
             if(!hostIpToClusterName.containsKey(personalHostIp)) {
-                hostIpToHostMap = new HashMap<>();
+//                hostIpToHostMap = new HashMap<>();
                 Cluster cluster = Cluster.builder().addContactPoint(personalHostIp)
                         .withCredentials(userName, password)
                         .build();
+                cluster.connect(); //done, because cluster.getMetadata too slow
                 String clusterName = cluster.getMetadata().getClusterName();
 
                 for (Host host : cluster.getMetadata().getAllHosts()) {
@@ -65,7 +71,7 @@ public class LocalOnlyPolicy implements LoadBalancingPolicy {
 
     @Override
     public HostDistance distance(Host host) {
-        if(host.equals(personalHostIp)){
+        if(host.equals(personalHost)){
             return HostDistance.LOCAL;
         }else{
             return HostDistance.IGNORED;

@@ -5,7 +5,7 @@ import java.util.Comparator;
 /**
  * Created by siddharth on 30/8/16.
  */
-public class MyTokenRange {
+public class MyTokenRange implements Comparable {
     private final Long start;
     private final Long end;
 
@@ -47,6 +47,12 @@ public class MyTokenRange {
                 "start=" + start +
                 ", end=" + end +
                 '}';
+    }
+
+    @Override
+    public int compareTo(Object o) {
+        MyTokenRange that = (MyTokenRange)o;
+        return 0;
     }
 
     /*class MyTokenRangeCompare implements Comparator<MyTokenRange> {
