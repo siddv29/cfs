@@ -34,8 +34,9 @@ public class CassandraFastFullTableScan {
     private final ArrayList<String> columns;
     private final int sleepMilliSeconds;
     private final int fetchSize;
+    private final boolean enableWhiteListPolicy;
 
-    public CassandraFastFullTableScan(String tableIdentifier, String contactPoint,LinkedBlockingQueue<Row> resultQueue, Options options) {
+    public CassandraFastFullTableScan(String tableIdentifier, String contactPoint,LinkedBlockingQueue<Row> resultQueue, Options options, boolean enableWhiteListPolicy) {
         this.tableIdentifier = tableIdentifier;
         this.contactPoint = contactPoint;
         this.resultQueue = resultQueue;
@@ -44,6 +45,7 @@ public class CassandraFastFullTableScan {
         this.consistencyLevel = options.getConsistencyLevel();
         this.numberOfThreads = options.getNumberOfThreads();
         this.dc = options.getDc();
+        this.enableWhiteListPolicy=enableWhiteListPolicy;
         LoadBalancingPolicy loadBalancingPolicy;
         if(dc != null){
             loadBalancingPolicy = DCAwareRoundRobinPolicy.builder().withLocalDc(dc).build();
@@ -98,6 +100,13 @@ public class CassandraFastFullTableScan {
         this.sleepMilliSeconds = options.getSleepMilliSeconds();
         this.latch = new CountDownLatch(numberOfThreads);
         this.producerThreads = readyProducers();
+        new Thread(){
+          @Override
+            public void run(){
+              try{latch.await();}catch (Exception e){}
+              closeCluster();
+          }
+        }.start();
     }
 
     private Thread[] readyProducers() {

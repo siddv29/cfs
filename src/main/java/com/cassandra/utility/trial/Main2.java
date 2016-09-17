@@ -14,18 +14,19 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class Main2 {
     public static void main(String... args){
         if(args.length == 0){
-            args = new String [6];
-            args[0]="myks.mytable";
+            args = new String [7];
+            args[0]="cams.product_filter_mapping";
             args[1]=/*"30.0.3.79"*/"localhost";
             args[2]="cassandra";
             args[3]="cassandra";
-            args[4]="2";
+            args[4]="200";
             args[5]="5000";
+            args[6]="false";
         }
         LinkedBlockingQueue<Row> resultQueue = new LinkedBlockingQueue<>();
         Thread dummyConsumer = new DummyMainConsumer(resultQueue,Integer.parseInt(args[4]));
         dummyConsumer.start();
-        CassandraFastFullTableScan cfs = new CassandraFastFullTableScan(args[0],args[1],resultQueue,new Options().setUsername(args[2]).setPassword(args[3]).setNumberOfThreads(Integer.parseInt(args[4])).setFetchSize(Integer.parseInt(args[5])));
+        CassandraFastFullTableScan cfs = new CassandraFastFullTableScan(args[0],args[1],resultQueue,new Options().setUsername(args[2]).setPassword(args[3]).setNumberOfThreads(Integer.parseInt(args[4])).setFetchSize(Integer.parseInt(args[5])),Boolean.parseBoolean(args[6]));
         CountDownLatch countDownLatch = cfs.start();
 
         try {
@@ -35,7 +36,7 @@ public class Main2 {
             //ignore
         }
         System.out.println("End of main");
-        cfs.closeCluster();
+
 
     }
     static class DummyMainConsumer extends Thread {
