@@ -2,10 +2,8 @@ package com.cassandra.utility.trial;
 
 import com.cassandra.utility.policy.LocalOnlyPolicy;
 import com.datastax.driver.core.*;
-import com.datastax.driver.core.policies.TokenAwarePolicy;
 
 import java.io.*;
-import java.lang.reflect.Field;
 import java.util.*;
 
 /**
@@ -14,42 +12,47 @@ import java.util.*;
 public class Trials {
 //    private final Map<String,String> properties;
     private final Map<String,/*TreeSet*/HashSet<MyTokenRange>> hostToTokenRange;
-    private final Map<Host,Cluster> hostToCluster;
+    private final Map<Host,List<Cluster>> hostToClusters;
 //    private final String contactPoint;
 //    private final String username;
 //    private final String password;
     Cluster tempClusterObj;
-    Trials(String contactPoint,String username,String password, String nodetoolDescriberingFile) throws IOException {
+    Trials(String contactPoint,String username,String password, String nodetoolDescriberingFile,int consumersPerNode) throws IOException {
 //        this.contactPoint = contactPoint;
 //        this.username = username;
 //        this.password = password;
         hostToTokenRange  = new HashMap<>();
         parseNodetoolDescriberingFile(nodetoolDescriberingFile);
 //        new LocalOnlyPolicy(contactPoint,username,password);
-        hostToCluster = initHostToCluster(contactPoint,username,password);
+        hostToClusters = initHostToClusters(contactPoint,username,password,consumersPerNode);
 
     }
 
 
 
-    private Map<Host, Cluster> initHostToCluster(String contactPoint,String username,String password) {
+    private Map<Host, List<Cluster>> initHostToClusters(String contactPoint, String username, String password, int consumersPerNode) {
         LocalOnlyPolicy localOnlyPolicy = new LocalOnlyPolicy(contactPoint,username,password);
-        final Map<Host,Cluster> hostToCluster = new HashMap<>();
+        final Map<Host,List<Cluster>> hostToClusters = new HashMap<>();
         for(Host host : LocalOnlyPolicy.getHostsByClusterName(LocalOnlyPolicy.getClusterNameByHostIp(contactPoint))){
-            Cluster individualHostCluster = Cluster.builder()
-                    .addContactPoint(contactPoint) //OR host.toString().substring(1).split(":")[0]
-                    .withQueryOptions(new QueryOptions().setFetchSize(5000))
-                    .withCredentials(username, password)
-                    .withLoadBalancingPolicy(new LocalOnlyPolicy(host.toString().substring(1).split(":")[0],username,password))
-                    .withSocketOptions(new SocketOptions().setReadTimeoutMillis(1000*60*60).setConnectTimeoutMillis(1000*60*60))
-                    .build();
-            hostToCluster.put(host,individualHostCluster);
+            List<Cluster> clustersPerHost = new ArrayList<>();
+            for(int i=1;i<=consumersPerNode;i++) {
+                Cluster individualHostCluster = Cluster.builder()
+                        .addContactPoint(contactPoint) //OR host.toString().substring(1).split(":")[0]
+                        .withQueryOptions(new QueryOptions().setFetchSize(5000))
+                        .withCredentials(username, password)
+                        .withLoadBalancingPolicy(new LocalOnlyPolicy(host.toString().substring(1).split(":")[0], username, password))
+                        .withSocketOptions(new SocketOptions().setReadTimeoutMillis(1000 * 60 * 60).setConnectTimeoutMillis(1000 * 60 * 60))
+                        .build();
+                clustersPerHost.add(individualHostCluster);
+
+            }
+            hostToClusters.put(host, clustersPerHost);
         }
-        return hostToCluster;
+        return hostToClusters;
     }
 
-    public Map<Host,Cluster> getHostToCluster(){
-        return hostToCluster;
+    public Map<Host,List<Cluster>> getHostToClusters(){
+        return hostToClusters;
     }
 
     public Map<String, /*Set*/HashSet<MyTokenRange>> getHostToTokenRange() {

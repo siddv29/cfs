@@ -3,6 +3,7 @@ package com.cassandra.utility.trial;
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 
+import java.lang.reflect.Field;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -36,6 +37,18 @@ public class Producer extends Thread {
         String temp[]= tableIdentifier.split("\\.");
         this.keyspace = temp[0];
         this.tablename = temp[1];
+
+        try {
+            Metadata clusterMetadata = cluster.getMetadata();
+            Field tokenMapField = Metadata.class.getDeclaredField("tokenMap");
+            tokenMapField.setAccessible(true);
+            Object tokenMap = tokenMapField.get(clusterMetadata);
+            Field tokenRangesField = tokenMap.getClass().getDeclaredField("tokenRanges");
+            tokenRangesField.setAccessible(true);
+            /*Object*/Set<TokenRange> tokenRanges = (Set<TokenRange>) tokenRangesField.get(tokenMap);
+        }catch (Exception e){
+            //dont care!
+        }
         /*StringBuffer partitionKey = new StringBuffer();
         for(ColumnMetadata partitionKeyPart : cluster.getMetadata().getKeyspace(keyspace).getTable(tablename).getPartitionKey()){
             partitionKey.append(partitionKeyPart.getName()+",");
@@ -52,7 +65,7 @@ public class Producer extends Thread {
         }
         this.boundStatement= boundStatement;
         this.boundStatement.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
-        this.boundStatement.setFetchSize(5000);
+        this.boundStatement.setFetchSize(/*5000*/Integer.parseInt(Constants.FETCH_SIZE));
     }
 
     private void fetchLoop(int debugCounter_tokenRange,MyTokenRange myTokenRange)throws /*InterruptedException*/Exception{
@@ -96,6 +109,7 @@ public class Producer extends Thread {
 
     }
     public void run() {
+        System.out.println("STARTED : "+host+":"+new Date());
         try {
             int debugCounter_tokenRange = 0;
             for (MyTokenRange tokenRange : personalTokenRange) {
