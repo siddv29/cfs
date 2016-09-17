@@ -15,10 +15,10 @@ public class Main2 {
     public static void main(String... args){
         if(args.length == 0){
             args = new String [6];
-            args[0]="cams.product_filter_mapping";
+            args[0]="myks.mytable";
             args[1]=/*"30.0.3.79"*/"localhost";
-            args[2]="cams_team";
-            args[3]="cams0all";
+            args[2]="cassandra";
+            args[3]="cassandra";
             args[4]="2";
             args[5]="5000";
         }
