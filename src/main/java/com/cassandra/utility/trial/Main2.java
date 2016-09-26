@@ -33,14 +33,13 @@ public class Main2 {
             args[1]="10.41.55.111"/*"localhost"*/;
             args[2]="cassandra";
             args[3]="cassandra";
-            args[4]="20";//number of consumers
-            args[5]="5";//fetch size
-            args[6]="1";
+            args[4]="10";//number of consumers
+            args[5]="100";//fetch size
         }
         LinkedBlockingQueue<Row> resultQueue = new LinkedBlockingQueue<>();
         Thread dummyConsumer = new DummyMainConsumer(resultQueue,Integer.parseInt(args[4]));
         dummyConsumer.start();
-        CassandraFastFullTableScan cfs = new CassandraFastFullTableScan(args[0],args[1],resultQueue,new Options().setUsername(args[2]).setPassword(args[3]).setNumberOfThreads(Integer.parseInt(args[4])).setFetchSize(Integer.parseInt(args[5])),(Integer.parseInt(args[6])==2?false:true));
+        CassandraFastFullTableScan cfs = new CassandraFastFullTableScan(args[0],args[1],resultQueue,new Options().setUsername(args[2]).setPassword(args[3]).setNumberOfThreads(Integer.parseInt(args[4])).setFetchSize(Integer.parseInt(args[5]))/*,false*/);
         CountDownLatch countDownLatch = cfs.start();
 
         try {

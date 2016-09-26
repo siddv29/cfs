@@ -13,14 +13,13 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 /*public*/ class Producer extends Thread {
     private final Set<TokenRange> tokenRangeSetForProducer;
-//    private final Session session;
+    private final Session session;
     private final CountDownLatch latch;
     private final LinkedBlockingQueue</*ResultSet*/Row> personalQueue;
     private final LinkedBlockingQueue<Row> mainQueue;
     private final Thread dedicatedConsumer;
-//    private final BoundStatement boundStatementRestOfTokenRange;
-//    private final BoundStatement boundStatementLastTokenRange;
-    private final Map<TokenRange,ExecutionDataForTokenRange> tokenRangeToExecutionDataForTokenRangeMap;
+    private final BoundStatement boundStatementRestOfTokenRange;
+    private final BoundStatement boundStatementLastTokenRange;
     private static ConsistencyLevel consistencyLevel;
     private static int sleepMilliSeconds;
     protected static boolean printDebugStatements;
@@ -35,17 +34,16 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 
 
-    protected Producer(String threadName, Set<TokenRange> tokenRangeSetForProducer, Map<TokenRange,ExecutionDataForTokenRange> tokenRangeToExecutionDataForTokenRangeMap/*, Session session*//*Cluster cluster*/, CountDownLatch latch, LinkedBlockingQueue mainQueue, int personalQueueSize/*,String fetchStatementRestOfTokenRange, String fetchStatementLastTokenRange*/, int fetchSize, Long startValueOfToken) {
+    protected Producer(String threadName,Set<TokenRange> tokenRangeSetForProducer, Session session/*Cluster cluster*/, CountDownLatch latch, LinkedBlockingQueue mainQueue, int personalQueueSize,String fetchStatementRestOfTokenRange,String fetchStatementLastTokenRange,int fetchSize,Long startValueOfToken) {
         super(threadName);
         System.out.println("TOKEN_PERSONAL_RANGE:"+tokenRangeSetForProducer.size()+ "" +Thread.currentThread().getName());
         this.tokenRangeSetForProducer = tokenRangeSetForProducer;
-        this.tokenRangeToExecutionDataForTokenRangeMap = tokenRangeToExecutionDataForTokenRangeMap;
-//        this.session = /*cluster.connect()*/session;
+        this.session = /*cluster.connect()*/session;
         this.latch = latch;
         this.mainQueue = mainQueue;
         this.personalQueue = new LinkedBlockingQueue(personalQueueSize);
-//        this.boundStatementRestOfTokenRange = new BoundStatement(session.prepare(fetchStatementRestOfTokenRange));
-//        boundStatementLastTokenRange = new BoundStatement(session.prepare(fetchStatementLastTokenRange));
+        this.boundStatementRestOfTokenRange = new BoundStatement(session.prepare(fetchStatementRestOfTokenRange));
+        boundStatementLastTokenRange = new BoundStatement(session.prepare(fetchStatementLastTokenRange));
 
         this.fetchSize = fetchSize;
         this.dedicatedConsumer = new DedicatedConsumer("DedicatedConsumer_FOR_"+threadName,personalQueue,this.mainQueue,this.latch);
@@ -56,15 +54,9 @@ import java.util.concurrent.LinkedBlockingQueue;
         dedicatedConsumer.start();
         for(TokenRange tokenRange : tokenRangeSetForProducer){
             if(printDebugStatements) System.out.println("TOKEN_RANGE : "+tokenRange.getStart()+";"+tokenRange.getEnd()+ " " +Thread.currentThread().getName());
-            fetchLoopWithAutomaticPaging(tokenRangeToExecutionDataForTokenRangeMap.get(tokenRange),tokenRange);
+            fetchLoopWithAutomaticPaging(tokenRange);
         }
-
-        /*session.close();*/
-        for(Map.Entry<TokenRange,ExecutionDataForTokenRange> entry : tokenRangeToExecutionDataForTokenRangeMap.entrySet()){
-            entry.getValue().getSession().close();
-            break;
-        }
-
+        session.close();
         try{
             personalQueue.put(/*new ProducerEnd()*//*null*/new RowTerminal());
         }catch (InterruptedException e){
@@ -72,13 +64,13 @@ import java.util.concurrent.LinkedBlockingQueue;
             System.exit(1);
         }
 
-
         try{
             dedicatedConsumer.join();
         }catch (InterruptedException e){
             System.out.println("Dedicated consumer interrupted for "+Thread.currentThread().getName()+" thread. Join failed");
             System.exit(1);
         }
+
 //        try{
 //            latch.await();
 //        }catch (InterruptedException e){
@@ -90,22 +82,23 @@ import java.util.concurrent.LinkedBlockingQueue;
     //works.
     //but try to make manualpaging work
     //it might be faster
-    private void fetchLoopWithAutomaticPaging(ExecutionDataForTokenRange executionDataForTokenRange,TokenRange tokenRange){
-//        BoundStatement boundStatement;
+    private void fetchLoopWithAutomaticPaging(TokenRange tokenRange){
+        BoundStatement boundStatement;
         if((Long)tokenRange.getStart().getValue() > (Long)tokenRange.getEnd().getValue()){
             /*
             Case
             9219444290392454365 to -9207785194558378121
              */
-//            boundStatement = boundStatementLastTokenRange;
-            executionDataForTokenRange.getBoundStatementLastTokenRange().bind(tokenRange.getStart().getValue());
-            fetchLoopForBoundStatement(executionDataForTokenRange.getSession(),executionDataForTokenRange.getBoundStatementLastTokenRange());
-            executionDataForTokenRange.getBoundStatementRestOfTokenRange().bind(Long.MIN_VALUE,startValueOfToken);
-            fetchLoopForBoundStatement(executionDataForTokenRange.getSession(),executionDataForTokenRange.getBoundStatementRestOfTokenRange());
+            boundStatement = boundStatementLastTokenRange;
+            boundStatement.bind(tokenRange.getStart().getValue());
+            fetchLoopForBoundStatement(session,boundStatement);
+            boundStatement = boundStatementRestOfTokenRange;
+            boundStatement.bind(Long.MIN_VALUE,startValueOfToken);
+            fetchLoopForBoundStatement(session,boundStatement);
         }else{
-//            boundStatement = boundStatementRestOfTokenRange;
-            executionDataForTokenRange.getBoundStatementRestOfTokenRange().bind(tokenRange.getStart().getValue(),tokenRange.getEnd().getValue());
-            fetchLoopForBoundStatement(executionDataForTokenRange.getSession(),executionDataForTokenRange.getBoundStatementRestOfTokenRange());
+            boundStatement = boundStatementRestOfTokenRange;
+            boundStatement.bind(tokenRange.getStart().getValue(),tokenRange.getEnd().getValue());
+            fetchLoopForBoundStatement(session,boundStatement);
         }
 
 
@@ -188,15 +181,7 @@ import java.util.concurrent.LinkedBlockingQueue;
             at java.lang.Thread.run(Thread.java:745)
 
          */
-        BoundStatement boundStatement;
-        BoundStatement boundStatementRestOfTokenRange=null;
-        BoundStatement boundStatementLastTokenRange=null;
-        Session session = null;
-        if((Long)tokenRange.getStart().getValue() > (Long)tokenRange.getEnd().getValue()){
-            boundStatement = boundStatementRestOfTokenRange;
-        }else{
-            boundStatement = boundStatementLastTokenRange;
-        }
+        BoundStatement boundStatement = null;
         boundStatement.bind(tokenRange.getStart().getValue(),tokenRange.getEnd().getValue());
         boundStatement.setConsistencyLevel(consistencyLevel);
         boundStatement.setFetchSize(10);

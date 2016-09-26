@@ -114,4 +114,19 @@ public class Options {
     public String getDc() {
         return dc;
     }
+
+    @Override
+    public String toString() {
+        return "Options{" +
+                "username='" + username + '\'' +
+                ", password='" + password + '\'' +
+                ", consistencyLevel=" + consistencyLevel +
+                ", numberOfThreads=" + numberOfThreads +
+                ", dc='" + dc + '\'' +
+                ", personalQueueSize=" + personalQueueSize +
+                ", columnNames=" + columnNames +
+                ", sleepMilliSeconds=" + sleepMilliSeconds +
+                ", fetchSize=" + fetchSize +
+                '}';
+    }
 }
