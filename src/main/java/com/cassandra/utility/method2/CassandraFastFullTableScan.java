@@ -1,14 +1,15 @@
 package com.cassandra.utility.method2;
 
+import com.cassandra.utility.WhiteListPolicyWithOnePriorityNode;
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
 import com.datastax.driver.core.policies.LoadBalancingPolicy;
 import com.datastax.driver.core.policies.RoundRobinPolicy;
 import com.datastax.driver.core.policies.TokenAwarePolicy;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
+import java.lang.reflect.Field;
+import java.net.InetSocketAddress;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -24,7 +25,6 @@ public class CassandraFastFullTableScan {
     private final int numberOfThreads;
     private final LinkedBlockingQueue<Row> resultQueue;
     private final String dc;
-    private final Cluster cluster;
     private final String partitionKey;
     private final String keyspace;
     private final String tableName;
@@ -42,17 +42,16 @@ public class CassandraFastFullTableScan {
         this.resultQueue = resultQueue;
         this.username = options.getUsername();
         this.password = options.getPassword();
-        this.consistencyLevel = options.getConsistencyLevel();
-        this.numberOfThreads = options.getNumberOfThreads();
+        this.consistencyLevel = options.getConsistencyLevel()/*ConsistencyLevel.ALL*/;
         this.dc = options.getDc();
-        this.enableWhiteListPolicy=enableWhiteListPolicy;
+        this.enableWhiteListPolicy=enableWhiteListPolicy/*false*/;
         LoadBalancingPolicy loadBalancingPolicy;
         if(dc != null){
             loadBalancingPolicy = DCAwareRoundRobinPolicy.builder().withLocalDc(dc).build();
         }else{
             loadBalancingPolicy = new RoundRobinPolicy();
         }
-        this.cluster = Cluster.builder().addContactPoint(contactPoint)
+        Cluster cluster = Cluster.builder().addContactPoint(contactPoint)
                         .withQueryOptions(new QueryOptions().setFetchSize(5000))
                         .withCredentials(username,password)
                         .withSocketOptions(new SocketOptions().setReadTimeoutMillis(1000 * 60 * 60).setConnectTimeoutMillis(1000 * 60 * 60))
@@ -83,9 +82,13 @@ public class CassandraFastFullTableScan {
         3. Now, it appears that overall, there might be no problem, as each node would be saturated.(possible, serving requests of data not on it)
            However, say, N3 would be coordinator for P1's hit, but it would have to fetch the data from another node.
            This might increase the inter cassandra cluster traffic
+            {
+                we can use TokenAware with setRoutingKey
+                but it doesn't support on bound statement with multiple arguments
+            }
         4. So, I think WhiteList policy might be good.
         5. Still open to discussions, if any.
-        6. Let it be flag based for now, let's call that flag useWhileListPolicy
+        6. Let it be flag based for now, let's call that flag enableWhileListPolicy
          */
 
         //get partition key.
@@ -93,27 +96,179 @@ public class CassandraFastFullTableScan {
         String temp[] = tableIdentifier.split("\\.");
         this.keyspace = temp[0];
         this.tableName = temp[1];
-        this.partitionKey = getPartitionKey();
+        this.partitionKey = getPartitionKey(cluster);
         this.columns = options.getColumnNames();
+        /*
+        Session s = cluster.newSession();
+        ConsistencyLevel cl = ConsistencyLevel.LOCAL_ONE;
+        BoundStatement bs = new BoundStatement(s.prepare("select * from cams.navigation_bucket_filter"));
+        bs.setConsistencyLevel(cl);
+        int orgCount=0;
+        for(Row  r: s.execute(bs)){
+            ++orgCount;
+        }
+
+        BoundStatement bs2 = new BoundStatement(s.prepare("select * from cams.navigation_bucket_filter where token(id) >= ? and token(id) < ?"));
+        BoundStatement bs2d = new BoundStatement(s.prepare("select * from cams.navigation_bucket_filter where token(id) >= ?"));
+        int count = 0;
+        for(TokenRange tr : new TreeSet<>(cluster.getMetadata().getTokenRanges())){
+        //    System.out.print(tr);
+            if((Long)tr.getStart().getValue()>(Long)tr.getEnd().getValue()){
+                bs=bs2d;
+                bs.bind(tr.getStart().getValue());
+            }else{
+                bs=bs2;
+                bs.bind(tr.getStart().getValue(),tr.getEnd().getValue());
+            }
+            bs.setConsistencyLevel(ConsistencyLevel.ALL);
+            for(Row  r2: s.execute(bs)){
+                ++count;
+            }
+        }
+        int count2=0;
+        for(TokenRange tr2 : new TreeSet<>(cluster.getMetadata().getTokenRanges())){
+            bs=bs2;
+            bs.bind(tr2.getStart().getValue(),tr2.getEnd().getValue());
+            bs.setConsistencyLevel(cl);
+            for(Row  r3: s.execute(bs)){
+                ++count2;
+            }
+        }
+        System.out.println();
+        System.out.println(count);
+        orgCount+":"+count+":"+count2
+         */
         this.fetchSize = options.getFetchSize();
         this.personalQueueSizePerProducer = options.getPersonalQueueSize();
         this.sleepMilliSeconds = options.getSleepMilliSeconds();
+        Producer.setStaticData(consistencyLevel,sleepMilliSeconds);
+        this.numberOfThreads = options.getNumberOfThreads();
         this.latch = new CountDownLatch(numberOfThreads);
-        this.producerThreads = readyProducers();
-        new Thread(){
-          @Override
-            public void run(){
-              try{latch.await();}catch (Exception e){}
-              closeCluster();
-          }
-        }.start();
+        TreeMap<TokenRange,Cluster> tokenRangeToCluster = new TreeMap<>();
+        if(!this.enableWhiteListPolicy) {
+            for(TokenRange tokenRange : cluster.getMetadata().getTokenRanges()){
+                tokenRangeToCluster.put(tokenRange,cluster);
+            }
+            new Thread(){
+                @Override
+                public void run(){
+                    try{latch.await();}catch (Exception e){}
+                    cluster.close();
+                }
+            }.start();
+            /*
+            Token Range :
+            -9202557673768568500 to -9196148035342120074
+            -9196148035342120074 to -9192186935162620143
+            -9192186935162620143 to -9179402551368500594
+            -9179402551368500594 to -9172149870278588007
+            .....
+             */
+        }else{
+            TreeMap<Token, Host> tokenRangeToPrimaryHost=null;
+            TreeMap<TokenRange, HashSet<Host>> tokenRangeToAllNodesWithReplica=null;
+            try {
+                Metadata clusterMetadata = cluster.getMetadata();
+                Field tokenMapField = Metadata.class.getDeclaredField("tokenMap");
+                tokenMapField.setAccessible(true);
+                Object tokenMap = tokenMapField.get(clusterMetadata);
+                /*Field tokenToPrimaryField = tokenMap.getClass().getDeclaredField("tokenToPrimary");
+                tokenToPrimaryField.setAccessible(true);
+                tokenRangeToPrimaryHost = new TreeMap<>((Map<Token, Host>) tokenToPrimaryField.get(tokenMap));*/
+                /*
+                -9202557673768568500 -> /10.41.55.111:9042
+                -9196148035342120074 -> /10.41.55.113:9042
+                -9192186935162620143 -> /10.41.55.111:9042
+                -9179402551368500594 -> /10.41.55.115:9042
+                .....
+                */
+                Field tokenToPrimaryField = tokenMap.getClass().getDeclaredField("tokenToPrimary");
+                tokenToPrimaryField.setAccessible(true);
+                tokenRangeToPrimaryHost = new TreeMap<>((Map<Token, Host>) tokenToPrimaryField.get(tokenMap));
+                Field tokenToHostsByKeyspaceField = tokenMap.getClass().getDeclaredField("tokenToHostsByKeyspace");
+                tokenToHostsByKeyspaceField.setAccessible(true);
+                Object ob1 = (((HashMap<String,TokenRange>)tokenToHostsByKeyspaceField.get(tokenMap)).get(keyspace));
+                tokenRangeToAllNodesWithReplica = new TreeMap<>((HashMap<TokenRange,HashSet<Host>>)ob1);
+                /*
+                Reflection FTW :D
+                P.S. This was brutal.
+                 */
+
+                Map<ReplicaNodes,Cluster> replicaNodesClusterMap = new HashMap<>();
+                for(TokenRange tokenRange : cluster.getMetadata().getTokenRanges()){
+                    ReplicaNodes replicaNodes = new ReplicaNodes(tokenRangeToPrimaryHost.get(tokenRange.getStart()),tokenRangeToAllNodesWithReplica.get(tokenRange.getStart()));
+                    if(!replicaNodesClusterMap.containsKey(replicaNodes)){
+                        ArrayList<InetSocketAddress> hostAddress=new ArrayList<>(replicaNodes.allHosts.size());
+                        for(Host host : replicaNodes.allHosts){
+                            hostAddress.add(host.getSocketAddress());
+                        }
+                        Cluster clusterForWhiteListPolicyWithOnePriorityNode = Cluster.builder().addContactPoint(replicaNodes.getPrimaryHost().getAddress().getHostAddress())
+                                .withQueryOptions(new QueryOptions().setFetchSize(5000))
+                                .withCredentials(username,password)
+                                .withSocketOptions(new SocketOptions().setReadTimeoutMillis(1000 * 60 * 60).setConnectTimeoutMillis(1000 * 60 * 60))
+                                .withLoadBalancingPolicy(new WhiteListPolicyWithOnePriorityNode(replicaNodes.getPrimaryHost(),replicaNodes.allHosts,hostAddress))
+                                .build();
+                        replicaNodesClusterMap.put(replicaNodes,clusterForWhiteListPolicyWithOnePriorityNode);
+                    }
+                    tokenRangeToCluster.put(tokenRange,replicaNodesClusterMap.get(replicaNodes));
+                }
+
+            }catch (Exception e){
+//                System.out .println(e);
+                throw new RuntimeException("Reflection code failed.\n{"
+                        +e.toString()
+                        +"}\nPlease send an email to sidd.verma29.list@gmail.com",e);
+                //don't care!
+            }
+        }
+        this.producerThreads = readyProducers(tokenRangeToCluster);
+
     }
 
-    private Thread[] readyProducers() {
+    private class ReplicaNodes{
+        private final Host primaryHost;
+        private final Set<Host> allHosts;
+
+        public ReplicaNodes(Host primaryHost, Set<Host> allHosts) {
+            this.primaryHost = primaryHost;
+            this.allHosts = allHosts;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            ReplicaNodes that = (ReplicaNodes) o;
+
+            if (primaryHost != null ? !primaryHost.equals(that.primaryHost) : that.primaryHost != null) return false;
+            return allHosts != null ? allHosts.equals(that.allHosts) : that.allHosts == null;
+
+        }
+
+        @Override
+        public int hashCode() {
+            int result = primaryHost != null ? primaryHost.hashCode() : 0;
+            result = 31 * result + (allHosts != null ? allHosts.hashCode() : 0);
+            return result;
+        }
+
+        public Host getPrimaryHost() {
+            return primaryHost;
+        }
+
+        public Set<Host> getAllHosts() {
+            return allHosts;
+        }
+    }
+
+
+    private Thread[] readyProducers(Map<TokenRange,Cluster> tokenRangeToCluster) {
         Thread producerThreads[] = new Thread[numberOfThreads];
         Set<TokenRange> tokenRangeSetForOneProducer = new HashSet<>();
-        int numberOfTokensPerConsumer = cluster.getMetadata().getTokenRanges().size() / numberOfThreads;
-        int numberOfProducersWithExtraToken = cluster.getMetadata().getTokenRanges().size() % numberOfThreads;
+
+        int numberOfTokensPerConsumer = tokenRangeToCluster.size() / numberOfThreads;
+        int numberOfProducersWithExtraToken = tokenRangeToCluster.size() % numberOfThreads;
         int tokensAddedForCurrentConsumer = 0;
         int indexOfProducer = 0;
         StringBuffer selectionColumnsBuffer = new StringBuffer();
@@ -131,6 +286,8 @@ public class CassandraFastFullTableScan {
         Thus, start inclusive, end exclusive
          */
         String fetchStatement = "select "+selectionColumns+" from "+keyspace+ "." +tableName +" where token("+partitionKey+") >= ? and token("+partitionKey+") < ? ";
+        String fetchStatementLastTokenRange = "select "+selectionColumns+" from "+keyspace+ "." +tableName +" where token("+partitionKey+") >= ? ";//  and token("+partitionKey+") <= ? ";
+        //I think, this is required. Not sure yet, open for discussion.
 
         /*
         Example 1:
@@ -149,32 +306,47 @@ public class CassandraFastFullTableScan {
         1  2  3  4  5  6  7  8
         9 10 11 12 13 14 15 16
          */
-        Producer.setStaticData(consistencyLevel,sleepMilliSeconds);
-        System.out.println("TOKEN_PERSONAL_RANGE:"+cluster.getMetadata().getTokenRanges().size()+" FULL COUNT.");
-        /*Cluster personalCluster = Cluster.builder().addContactPoint(contactPoint)
+
+        System.out.println("TOKEN_PERSONAL_RANGE:"+/*cluster.getMetadata().getTokenRanges()*/tokenRangeToCluster.size()+" FULL COUNT.");
+        /*
+        tried this when manual paging gave error.
+        Still not resolved
+        Cluster personalCluster = Cluster.builder().addContactPoint(contactPoint)
                 .withQueryOptions(new QueryOptions().setFetchSize(5000))
                 .withCredentials(username,password)
                 .withSocketOptions(new SocketOptions().setReadTimeoutMillis(1000 * 60 * 60).setConnectTimeoutMillis(1000 * 60 * 60))
                 .withLoadBalancingPolicy(new TokenAwarePolicy(new RoundRobinPolicy()))
                 .build();*/
-        for(TokenRange tokenRange : cluster.getMetadata().getTokenRanges()){
+        Long startValueOfToken = (Long)(((TreeSet<TokenRange>)new TreeSet<>(tokenRangeToCluster.keySet())).first().getStart().getValue());
+        Map<TokenRange,ExecutionDataForTokenRange> tokenRangeToExecutionDataForTokenRangeMap = new TreeMap<>();
+        for(TokenRange tokenRange : /*cluster.getMetadata().getTokenRanges()*/tokenRangeToCluster.keySet()){
             if(tokensAddedForCurrentConsumer == numberOfTokensPerConsumer){
                 if(numberOfProducersWithExtraToken== 0) {
-                    producerThreads[indexOfProducer] = new Producer("Producer-"+indexOfProducer,tokenRangeSetForOneProducer,cluster.newSession()/*personalCluster*/,latch,resultQueue,personalQueueSizePerProducer,fetchStatement,fetchSize);
-                    /*personalCluster = Cluster.builder().addContactPoint(contactPoint)
+                    completeTokenRangeToExecutionDataForTokenRangeMap(tokenRangeToExecutionDataForTokenRangeMap,tokenRangeToCluster,fetchStatement,fetchStatementLastTokenRange);
+                    producerThreads[indexOfProducer] = new Producer("Producer-"+indexOfProducer,tokenRangeSetForOneProducer,tokenRangeToExecutionDataForTokenRangeMap/*,cluster.newSession()*//*personalCluster*/,latch,resultQueue,personalQueueSizePerProducer,/*fetchStatement,fetchStatementLastTokenRange,*/fetchSize,startValueOfToken);
+                    /*
+                    tried this when manual paging gave error.
+                    Still not resolved
+                    personalCluster = Cluster.builder().addContactPoint(contactPoint)
                             .withQueryOptions(new QueryOptions().setFetchSize(5000))
                             .withCredentials(username,password)
                             .withSocketOptions(new SocketOptions().setReadTimeoutMillis(1000 * 60 * 60).setConnectTimeoutMillis(1000 * 60 * 60))
                             .withLoadBalancingPolicy(new TokenAwarePolicy(new RoundRobinPolicy()))
                             .build();*/
-                    tokenRangeSetForOneProducer = new HashSet<>();
+                    tokenRangeToExecutionDataForTokenRangeMap = new HashMap<>();
+                    tokenRangeToExecutionDataForTokenRangeMap.put(tokenRange,null);
                     tokenRangeSetForOneProducer.add(tokenRange);
                     tokensAddedForCurrentConsumer = 1;
                     ++indexOfProducer;
                 }else{
+                    tokenRangeToExecutionDataForTokenRangeMap.put(tokenRange,null);
                     tokenRangeSetForOneProducer.add(tokenRange);
-                    producerThreads[indexOfProducer] = new Producer("Producer-"+indexOfProducer,tokenRangeSetForOneProducer,cluster.newSession()/*personalCluster*/,latch,resultQueue,personalQueueSizePerProducer,fetchStatement,fetchSize);
-                    /*personalCluster = Cluster.builder().addContactPoint(contactPoint)
+                    completeTokenRangeToExecutionDataForTokenRangeMap(tokenRangeToExecutionDataForTokenRangeMap,tokenRangeToCluster,fetchStatement,fetchStatementLastTokenRange);
+                    producerThreads[indexOfProducer] = new Producer("Producer-"+indexOfProducer,tokenRangeSetForOneProducer,tokenRangeToExecutionDataForTokenRangeMap/*,cluster.newSession()*//*personalCluster*/,latch,resultQueue,personalQueueSizePerProducer,/*fetchStatement,fetchStatementLastTokenRange,*/fetchSize,startValueOfToken);
+                    /*
+                    tried this when manual paging gave error.
+                    Still not resolved
+                    personalCluster = Cluster.builder().addContactPoint(contactPoint)
                             .withQueryOptions(new QueryOptions().setFetchSize(5000))
                             .withCredentials(username,password)
                             .withSocketOptions(new SocketOptions().setReadTimeoutMillis(1000 * 60 * 60).setConnectTimeoutMillis(1000 * 60 * 60))
@@ -186,13 +358,33 @@ public class CassandraFastFullTableScan {
                     ++indexOfProducer;
                 }
             }else{
+                tokenRangeToExecutionDataForTokenRangeMap.put(tokenRange,null);
                 tokenRangeSetForOneProducer.add(tokenRange);
                 ++tokensAddedForCurrentConsumer;
             }
         }
-        producerThreads[indexOfProducer] = new Producer("Producer-"+indexOfProducer,tokenRangeSetForOneProducer,cluster.newSession()/*personalCluster*/,latch,resultQueue,personalQueueSizePerProducer,fetchStatement,fetchSize);
+        completeTokenRangeToExecutionDataForTokenRangeMap(tokenRangeToExecutionDataForTokenRangeMap,tokenRangeToCluster,fetchStatement,fetchStatementLastTokenRange);
+        producerThreads[indexOfProducer] = new Producer("Producer-"+indexOfProducer,tokenRangeSetForOneProducer,tokenRangeToExecutionDataForTokenRangeMap/*,cluster.newSession()*//*personalCluster*/,latch,resultQueue,personalQueueSizePerProducer,/*fetchStatement,fetchStatementLastTokenRange,*/fetchSize,startValueOfToken);
 
         return producerThreads;
+    }
+
+    private void completeTokenRangeToExecutionDataForTokenRangeMap(Map<TokenRange, ExecutionDataForTokenRange> tokenRangeToExecutionDataForTokenRangeMap, Map<TokenRange,Cluster> tokenRangeToCluster,String fetchStatement,String fetchStatementLastTokenRange) {
+        Map<Cluster,Session> clusterSessionMap = new HashMap<>();
+
+        for(TokenRange tokenRange: tokenRangeToExecutionDataForTokenRangeMap.keySet()){
+            Session session;
+            ExecutionDataForTokenRange executionDataForTokenRange;
+            Cluster cluster = tokenRangeToCluster.get(tokenRange);
+            if(clusterSessionMap.containsKey(cluster)){
+                session = clusterSessionMap.get(cluster);
+            }else {
+
+                session = cluster.newSession();
+                clusterSessionMap.put(cluster,session);
+            }
+            tokenRangeToExecutionDataForTokenRangeMap.put(tokenRange,new ExecutionDataForTokenRange(session,fetchStatement,fetchStatementLastTokenRange));
+        }
     }
 
     public CountDownLatch start(){
@@ -204,24 +396,12 @@ public class CassandraFastFullTableScan {
 
     }
 
-    private String getPartitionKey() {
+    private String getPartitionKey(Cluster cluster) {
         StringBuffer partitionKeyTemp = new StringBuffer();
         for(ColumnMetadata partitionKeyPart : cluster.getMetadata().getKeyspace(keyspace).getTable(tableName).getPartitionKey()){
             partitionKeyTemp.append(partitionKeyPart.getName()+",");
         }
         String partitionKey = partitionKeyTemp.substring(0,partitionKeyTemp.length()-1);
         return partitionKey;
-    }
-
-    @Override
-    protected void finalize() throws Throwable {
-//        this.cluster.close();
-        if(this.cluster!=null){
-            closeCluster();
-        }
-    }
-
-    public void closeCluster(){
-        this.cluster.close();
     }
 }

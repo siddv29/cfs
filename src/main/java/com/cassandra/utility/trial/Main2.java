@@ -15,18 +15,32 @@ public class Main2 {
     public static void main(String... args){
         if(args.length == 0){
             args = new String [7];
-            args[0]="cams.product_filter_mapping";
-            args[1]=/*"30.0.3.79"*/"localhost";
+            args[0]="cams.navigation_bucket_filter";
+            /*
+            Cluster 1
+            10.41.55.111
+            10.41.55.113
+            10.41.55.112
+            10.41.55.115
+            10.41.55.114
+            10.41.55.116
+
+            Cluster 2
+            10.41.55.117
+            10.41.55.119
+            10.41.55.118
+             */
+            args[1]="10.41.55.111"/*"localhost"*/;
             args[2]="cassandra";
             args[3]="cassandra";
-            args[4]="200";
-            args[5]="5000";
-            args[6]="false";
+            args[4]="20";//number of consumers
+            args[5]="5";//fetch size
+            args[6]="1";
         }
         LinkedBlockingQueue<Row> resultQueue = new LinkedBlockingQueue<>();
         Thread dummyConsumer = new DummyMainConsumer(resultQueue,Integer.parseInt(args[4]));
         dummyConsumer.start();
-        CassandraFastFullTableScan cfs = new CassandraFastFullTableScan(args[0],args[1],resultQueue,new Options().setUsername(args[2]).setPassword(args[3]).setNumberOfThreads(Integer.parseInt(args[4])).setFetchSize(Integer.parseInt(args[5])),Boolean.parseBoolean(args[6]));
+        CassandraFastFullTableScan cfs = new CassandraFastFullTableScan(args[0],args[1],resultQueue,new Options().setUsername(args[2]).setPassword(args[3]).setNumberOfThreads(Integer.parseInt(args[4])).setFetchSize(Integer.parseInt(args[5])),(Integer.parseInt(args[6])==2?false:true));
         CountDownLatch countDownLatch = cfs.start();
 
         try {
@@ -60,7 +74,7 @@ public class Main2 {
                         try{Thread.sleep(1000);}catch (Exception e){}
                         ++secondsCounter;
                     }
-                    System.out.println("COUNT FINISHED");
+                    System.out.println("COUNT FINISHED:"+secondsCounter+":"+countRows);
                 }
             }).start();
             while(sentinelRowMarker > 0){
