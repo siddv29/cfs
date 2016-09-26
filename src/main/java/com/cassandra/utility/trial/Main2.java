@@ -1,8 +1,8 @@
 package com.cassandra.utility.trial;
 
-import com.cassandra.utility.method2.CassandraFastFullTableScan;
-import com.cassandra.utility.method2.Options;
-import com.cassandra.utility.method2.RowTerminal;
+import com.cassandra.utility.method1.CassandraFastFullTableScan;
+import com.cassandra.utility.method1.Options;
+import com.cassandra.utility.method1.RowTerminal;
 import com.datastax.driver.core.Row;
 
 import java.util.concurrent.CountDownLatch;

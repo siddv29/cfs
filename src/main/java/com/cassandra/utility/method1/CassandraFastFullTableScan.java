@@ -1,14 +1,11 @@
-package com.cassandra.utility.method2;
+package com.cassandra.utility.method1;
 
-import com.cassandra.utility.WhiteListPolicyWithOnePriorityNode;
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
 import com.datastax.driver.core.policies.LoadBalancingPolicy;
 import com.datastax.driver.core.policies.RoundRobinPolicy;
 import com.datastax.driver.core.policies.TokenAwarePolicy;
 
-import java.lang.reflect.Field;
-import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;

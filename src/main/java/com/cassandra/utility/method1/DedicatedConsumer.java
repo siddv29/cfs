@@ -1,4 +1,4 @@
-package com.cassandra.utility.method2;
+package com.cassandra.utility.method1;
 
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;

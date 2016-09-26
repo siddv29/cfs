@@ -1,7 +1,6 @@
-package com.cassandra.utility.method2;
+package com.cassandra.utility.method1;
 
 import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
 
 /**

@@ -1,9 +1,8 @@
-package com.cassandra.utility.method2;
+package com.cassandra.utility.method1;
 
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;

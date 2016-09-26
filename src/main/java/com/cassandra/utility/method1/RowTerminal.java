@@ -1,4 +1,4 @@
-package com.cassandra.utility.method2;
+package com.cassandra.utility.method1;
 
 import com.datastax.driver.core.*;
 import com.google.common.reflect.TypeToken;
