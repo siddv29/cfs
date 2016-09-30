@@ -39,7 +39,7 @@ public class Main2 {
         LinkedBlockingQueue<Row> resultQueue = new LinkedBlockingQueue<>();
         Thread dummyConsumer = new DummyMainConsumer(resultQueue,Integer.parseInt(args[4]));
         dummyConsumer.start();
-        CassandraFastFullTableScan cfs = new CassandraFastFullTableScan(args[0],args[1],resultQueue,new Options().setUsername(args[2]).setPassword(args[3]).setNumberOfThreads(Integer.parseInt(args[4])).setFetchSize(Integer.parseInt(args[5]))/*,false*/);
+        CassandraFastFullTableScan cfs = new CassandraFastFullTableScan(args[0],args[1],resultQueue,new Options().setUsername(args[2]).setPassword(args[3]).setNumberOfThreads(Integer.parseInt(args[4])).setFetchSize(Integer.parseInt(args[5]))/*,false*/,System.out);
         CountDownLatch countDownLatch = cfs.start();
 
         try {

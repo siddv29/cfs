@@ -3,6 +3,8 @@ package com.cassandra.utility.method1;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 
+import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -13,6 +15,11 @@ import java.util.concurrent.LinkedBlockingQueue;
     private final LinkedBlockingQueue</*ResultSet*/Row> personalQueue;
     private final LinkedBlockingQueue<Row> mainQueue;
     private final CountDownLatch latch;
+    private static PrintStream loggingFile;
+
+    protected static void  setStaticData(PrintStream loggingFile){
+        DedicatedConsumer.loggingFile= loggingFile;
+    }
 
     public DedicatedConsumer(String dedicatedConsumerName, LinkedBlockingQueue</*ResultSet*/Row> personalQueue, LinkedBlockingQueue<Row> mainQueue, CountDownLatch latch) {
         super(dedicatedConsumerName);
@@ -22,7 +29,7 @@ import java.util.concurrent.LinkedBlockingQueue;
     }
 
     public void run(){
-        if(Producer.printDebugStatements) System.out.println(Thread.currentThread().getName()+" started.");
+        if(Producer.printDebugStatements) loggingFile.println(Thread.currentThread().getName()+" started.");
         ResultSet rs=null;
         Row row = null;
 
@@ -56,7 +63,7 @@ import java.util.concurrent.LinkedBlockingQueue;
             try {
                 row = personalQueue.take();
             } catch (InterruptedException e) {
-                System.out.println("Interrupted exception while getting row from personal queue."+Thread.currentThread().getName()+" thread.");
+                loggingFile.println("Interrupted exception while getting row from personal queue."+Thread.currentThread().getName()+" thread.");
                 e.printStackTrace();
                 System.exit(1);
             }
@@ -66,17 +73,19 @@ import java.util.concurrent.LinkedBlockingQueue;
             try{
                 mainQueue.put(row);
             }catch (InterruptedException e){
-                System.out.println("Interrupted Exception while pushing row to main queue."+Thread.currentThread().getName()+" thread.");
+                loggingFile.println("Interrupted Exception while pushing row to main queue."+Thread.currentThread().getName()+" thread.");
                 System.exit(1);
             }
 
         } while (true);
-        try{
+//        try{
             latch.countDown();
-            mainQueue.put(new RowTerminal());
-        }catch (InterruptedException e){
-            System.out.println("Interrupted Exception while pushing terminal row to main queue."+Thread.currentThread().getName()+" thread.");
-            System.exit(1);
-        }
+//            mainQueue.put(new RowTerminal());
+            //no need.
+            //added once when cluster about to be closed.
+//        }catch (InterruptedException e){
+//            System.out.println("Interrupted Exception while pushing terminal row to main queue."+Thread.currentThread().getName()+" thread.");
+//            System.exit(1);
+//        }
     }
 }

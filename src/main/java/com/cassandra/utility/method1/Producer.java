@@ -3,6 +3,8 @@ package com.cassandra.utility.method1;
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 
+import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -22,20 +24,23 @@ import java.util.concurrent.LinkedBlockingQueue;
     private static ConsistencyLevel consistencyLevel;
     private static int sleepMilliSeconds;
     protected static boolean printDebugStatements;
+    protected static PrintStream loggingFile;
     private final int fetchSize;
     private final Long startValueOfToken;
 
-    protected static void  setStaticData(ConsistencyLevel consistencyLevel, int sleepMilliSeconds){
+    protected static void  setStaticData(ConsistencyLevel consistencyLevel, int sleepMilliSeconds,PrintStream loggingFile){
+        DedicatedConsumer.setStaticData(loggingFile);
         Producer.consistencyLevel = consistencyLevel;
         Producer.sleepMilliSeconds = sleepMilliSeconds;
         Producer.printDebugStatements = true;
+        Producer.loggingFile = loggingFile;
     }
 
 
 
     protected Producer(String threadName,Set<TokenRange> tokenRangeSetForProducer, Session session/*Cluster cluster*/, CountDownLatch latch, LinkedBlockingQueue mainQueue, int personalQueueSize,String fetchStatementRestOfTokenRange,String fetchStatementLastTokenRange,int fetchSize,Long startValueOfToken) {
         super(threadName);
-        System.out.println("TOKEN_PERSONAL_RANGE:"+tokenRangeSetForProducer.size()+ "" +Thread.currentThread().getName());
+        loggingFile.println("TOKEN_PERSONAL_RANGE:"+tokenRangeSetForProducer.size()+ "" +Thread.currentThread().getName());
         this.tokenRangeSetForProducer = tokenRangeSetForProducer;
         this.session = /*cluster.connect()*/session;
         this.latch = latch;
@@ -52,21 +57,21 @@ import java.util.concurrent.LinkedBlockingQueue;
     public void run(){
         dedicatedConsumer.start();
         for(TokenRange tokenRange : tokenRangeSetForProducer){
-            if(printDebugStatements) System.out.println("TOKEN_RANGE : "+tokenRange.getStart()+";"+tokenRange.getEnd()+ " " +Thread.currentThread().getName());
+            if(printDebugStatements) loggingFile.println("TOKEN_RANGE : "+tokenRange.getStart()+";"+tokenRange.getEnd()+ " " +Thread.currentThread().getName());
             fetchLoopWithAutomaticPaging(tokenRange);
         }
         session.close();
         try{
             personalQueue.put(/*new ProducerEnd()*//*null*/new RowTerminal());
         }catch (InterruptedException e){
-            System.out.println("Interrupted Excpetion while pushing terminal value to personalQueue. "+Thread.currentThread().getName()+" thread.");
+            loggingFile.println("Interrupted Excpetion while pushing terminal value to personalQueue. "+Thread.currentThread().getName()+" thread.");
             System.exit(1);
         }
 
         try{
             dedicatedConsumer.join();
         }catch (InterruptedException e){
-            System.out.println("Dedicated consumer interrupted for "+Thread.currentThread().getName()+" thread. Join failed");
+            loggingFile.println("Dedicated consumer interrupted for "+Thread.currentThread().getName()+" thread. Join failed");
             System.exit(1);
         }
 
@@ -118,13 +123,13 @@ import java.util.concurrent.LinkedBlockingQueue;
 //                        lastProcessedToken = row.getPartitionKeyToken();
                         personalQueue.put(row);
                     } catch (InterruptedException e) {
-                        System.out.println("Interrupted Exception while pushing row to personal queue." + Thread.currentThread().getName() + " thread.");
+                        loggingFile.println("Interrupted Exception while pushing row to personal queue." + Thread.currentThread().getName() + " thread.");
                         System.exit(1);
                     }
                 }
                 completed = true;
             }catch (Exception e){
-                System.out.println("READ EXCEPTION." + Thread.currentThread().getName() + " thread. Trying again."+e);
+                loggingFile.println("READ EXCEPTION." + Thread.currentThread().getName() + " thread. Trying again."+e);
                 e.printStackTrace();
 //                boundStatement.bind((long)lastProcessedToken.getValue()+1,tokenRange.getEnd().getValue());
                 resultSet = session.execute(boundStatement);
@@ -188,17 +193,17 @@ import java.util.concurrent.LinkedBlockingQueue;
 //        boolean oneFetchDone = false;
         do {
             try {
-                if(printDebugStatements) System.out.println("Hitting..." + currentPageInfo + "..."+Thread.currentThread().getName()+" thread.");
+                if(printDebugStatements) loggingFile.println("Hitting..." + currentPageInfo + "..."+Thread.currentThread().getName()+" thread.");
                 if (currentPageInfo != null) {
                     boundStatement.setPagingState(PagingState.fromString(currentPageInfo));
                 }
                 ResultSet rs = session.execute(boundStatement);
 //                oneFetchDone = true;
-                if(printDebugStatements) System.out.println("Pushed to queue");
+                if(printDebugStatements) loggingFile.println("Pushed to queue");
                 try{
                     personalQueue.put(/*rs*/null);
                 }catch (InterruptedException e){
-                    System.out.println("Interrupted Exception while pushing result set to personal queue."+Thread.currentThread().getName()+" thread.");
+                    loggingFile.println("Interrupted Exception while pushing result set to personal queue."+Thread.currentThread().getName()+" thread.");
                     System.exit(1);
                 }
                 PagingState nextPage = rs.getExecutionInfo().getPagingState();
@@ -208,10 +213,10 @@ import java.util.concurrent.LinkedBlockingQueue;
                 }
                 currentPageInfo = nextPageInfo;
             } catch (NoHostAvailableException e) {
-                if(printDebugStatements) System.out.println("No host available exception... going to sleep for 1 sec"+Thread.currentThread().getName()+" thread.");
+                if(printDebugStatements) loggingFile.println("No host available exception... going to sleep for 1 sec"+Thread.currentThread().getName()+" thread.");
                 try {Thread.sleep(sleepMilliSeconds);} catch (Exception e2) {/*nothing*/}
             }
-            if(printDebugStatements) System.out.println("Finished while loop"+Thread.currentThread().getName()+" thread.");
+            if(printDebugStatements) loggingFile.println("Finished while loop"+Thread.currentThread().getName()+" thread.");
         } while (/*(!oneFetchDone && currentPageInfo == null) ||*//*(!oneFetchDone)||*/(currentPageInfo != null));
     }
 }

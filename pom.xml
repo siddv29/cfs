@@ -53,7 +53,7 @@
                         <configuration>
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>full</shadedClassifierName>
-                            <transformers>
+                            <!--<transformers>
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                                 <transformer
@@ -68,8 +68,7 @@
                                         implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
                                     <resource>META-INF/spring.schemas</resource>
                                 </transformer>
-                            </transformers>
-                            <!-- <finalName>filter-dump-full-${project.version}</finalName> -->
+                            </transformers>-->
                         </configuration>
                     </execution>
                 </executions>

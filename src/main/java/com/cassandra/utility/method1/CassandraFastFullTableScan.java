@@ -6,6 +6,8 @@ import com.datastax.driver.core.policies.LoadBalancingPolicy;
 import com.datastax.driver.core.policies.RoundRobinPolicy;
 import com.datastax.driver.core.policies.TokenAwarePolicy;
 
+import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -31,10 +33,12 @@ public class CassandraFastFullTableScan {
     private final ArrayList<String> columns;
     private final int sleepMilliSeconds;
     private final int fetchSize;
+    private final PrintStream loggingFile;// we can use log4j as well;
 //    private final boolean enableWhiteListPolicy;
 
-    public CassandraFastFullTableScan(String tableIdentifier, String contactPoint,LinkedBlockingQueue<Row> resultQueue, Options options/*, boolean enableWhiteListPolicy*/) {
-        System.out.println(options);
+    public CassandraFastFullTableScan(String tableIdentifier, String contactPoint,LinkedBlockingQueue<Row> resultQueue, Options options/*, boolean enableWhiteListPolicy*/,PrintStream loggingFile) {
+        this.loggingFile = loggingFile;
+        loggingFile.println(options);
         this.tableIdentifier = tableIdentifier;
         this.contactPoint = contactPoint;
         this.resultQueue = resultQueue;
@@ -107,7 +111,7 @@ public class CassandraFastFullTableScan {
         this.fetchSize = options.getFetchSize();
         this.personalQueueSizePerProducer = options.getPersonalQueueSize();
         this.sleepMilliSeconds = options.getSleepMilliSeconds();
-        Producer.setStaticData(consistencyLevel,sleepMilliSeconds);
+        Producer.setStaticData(consistencyLevel,sleepMilliSeconds,loggingFile);
         this.numberOfThreads = options.getNumberOfThreads();
         this.latch = new CountDownLatch(numberOfThreads);
         this.producerThreads = readyProducers(cluster);
@@ -115,6 +119,11 @@ public class CassandraFastFullTableScan {
           @Override
             public void run(){
               try{latch.await();}catch (Exception e){}
+              try{
+                  resultQueue.put(new RowTerminal());
+              }catch (Exception e1){
+                  //what to do.
+              }
               cluster.close();
           }
         }.start();
@@ -163,7 +172,7 @@ public class CassandraFastFullTableScan {
         1  2  3  4  5  6  7  8
         9 10 11 12 13 14 15 16
          */
-        System.out.println("TOKEN_PERSONAL_RANGE:"+cluster.getMetadata().getTokenRanges().size()+" FULL COUNT.");
+        loggingFile.println("TOKEN_PERSONAL_RANGE:"+cluster.getMetadata().getTokenRanges().size()+" FULL COUNT.");
         /*
             tried this when manual paging gave error.
             Still not resolved
@@ -221,7 +230,7 @@ public class CassandraFastFullTableScan {
     }
 
     public CountDownLatch start(){
-        System.out.println("CFS Started");
+        loggingFile.println("CFS Started");
         for(Thread thread : producerThreads){
             thread.start();
         }
