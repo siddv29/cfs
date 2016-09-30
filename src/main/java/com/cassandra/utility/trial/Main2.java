@@ -15,7 +15,7 @@ public class Main2 {
     public static void main(String... args){
         if(args.length == 0){
             args = new String [7];
-            args[0]="cams.navigation_bucket_filter";
+            args[0]="ks.tab1"; //table identifier
             /*
             Cluster 1
             10.41.55.111
@@ -30,9 +30,9 @@ public class Main2 {
             10.41.55.119
             10.41.55.118
              */
-            args[1]="10.41.55.111"/*"localhost"*/;
-            args[2]="cassandra";
-            args[3]="cassandra";
+            args[1]="10.41.55.111"/*"localhost"*/; //contactPoint
+            args[2]="cassandra"; //username
+            args[3]="cassandra"; //password
             args[4]="10";//number of consumers
             args[5]="100";//fetch size
         }

@@ -56,6 +56,14 @@ public class CassandraFastFullTableScan {
                         .withLoadBalancingPolicy(new TokenAwarePolicy(loadBalancingPolicy))
                         .build();
         /*
+        TokenAware has no significance at all. Absolutely none.
+        Use setRoutingKey for non composite partition key, and non sparse table
+        non composite key? -> BoundStatement doesn't support varargs, yet.
+        non parse table?   -> because we would use limit 1 in that token range, so if it is sparse, finding 1st partition key in that range
+                                                                                ^^ have to implement it.
+        */
+
+        /*
         Story 1:
         Hi, if you are reading this story, then I guess you decided to go through the code base, for CFS(Cassandra Fast full table Scan), the name at the moment.
         I think, I would be settling on this name. Earlier, when I started it, I decided the name multiple cassandra consumer(producer).
@@ -120,6 +128,7 @@ public class CassandraFastFullTableScan {
         int tokensAddedForCurrentConsumer = 0;
         int indexOfProducer = 0;
         StringBuffer selectionColumnsBuffer = new StringBuffer();
+        //Why using StringBuffer when I can use StringBuilder? Don't know! :D P.S. if you reading this, you go coder!!! You do you! You do you!!!:*
         for(String column : columns){
             selectionColumnsBuffer.append(column+",");
         }
@@ -134,7 +143,7 @@ public class CassandraFastFullTableScan {
         Thus, start inclusive, end exclusive
          */
         String fetchStatement = "select "+selectionColumns+" from "+keyspace+ "." +tableName +" where token("+partitionKey+") >= ? and token("+partitionKey+") < ? ";
-        String fetchStatementLastTokenRange = "select "+selectionColumns+" from "+keyspace+ "." +tableName +" where token("+partitionKey+") >= ? ";//  and token("+partitionKey+") <= ? ";
+        String fetchStatementLastTokenRange = "select "+selectionColumns+" from "+keyspace+ "." +tableName +" where token("+partitionKey+") >= ?";//  and token("+partitionKey+") <= ? ";
         //I think, this is required. Not sure yet, open for discussion.
 
         /*
@@ -154,7 +163,6 @@ public class CassandraFastFullTableScan {
         1  2  3  4  5  6  7  8
         9 10 11 12 13 14 15 16
          */
-        Producer.setStaticData(consistencyLevel,sleepMilliSeconds);
         System.out.println("TOKEN_PERSONAL_RANGE:"+cluster.getMetadata().getTokenRanges().size()+" FULL COUNT.");
         /*
             tried this when manual paging gave error.
