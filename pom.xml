@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.cassandra.utility</groupId>
-    <artifactId>multiple-cassandra-consumers</artifactId>
+    <artifactId>cfs</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <dependencies>
