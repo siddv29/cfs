@@ -21,12 +21,6 @@ All you need to do is provide <br>
 <table>
 <tr><td>~  229 million rows</td><td>128 threads</td><td>134((18) + 116)</td><td>1DC, 6 nodes in DC, RF:3</td></tr>
 <tr><td>~  765 million rows</td><td>128 threads</td><td>487((16) + 471)</td><td>3DCs, 3 nodes in concerened DC, RF:1</td></tr>
-<sub>
-Time indicated per each entry in the form TotalTime((SetupTime) + EffectiveTime)
-<br>TotalTime is the total time taken by program to scan table
-<br>SetupTime is the time taken by program to instantiate cluster, open sessions, etc.
-<br>EffectiveTime = TotalTime-SetupTime, i.e. the time taken effectively for complete scan
-</sub>
 </table>
 <sub>
 the time indicated in column is <b>TotalTime((SetupTime) + EffectiveTime)</b>.
