@@ -5,19 +5,30 @@ All you need to do is provide <br>
 <li>Table identifier</li>
 <li>Cluster node IP</li>
 <li>Queue (LinkedBlockingQueue)
-<li>Configurable options ( <i>values in brackets are default values</i> )</li>
-<ul>
-<li>Username ( <i>nill</i> )</li>
-<li>Password ( <i>nill</i> )</li>
-<li>Consistency Level ( <i>LOCAL_ONE</i> )</li>
-<li>Number of threads ( <i>16</i> )</li>
-<li>DC Aware Option ( <i>all nodes considered</i> )</li>
-<li>ColumnNames to be dumped ( <i>*</i> )</li>
-<li>Fetch Size per page ( <i>5000</i> )</li>
-</ul>
+<li>Configurable options ( <i>values in brackets are default values</i> ) </li>
+    <ul>
+    <li>Username ( <i>nill</i> )</li>
+    <li>Password ( <i>nill</i> )</li>
+    <li>Consistency Level ( <i>LOCAL_ONE</i> )</li>
+    <li>Number of threads ( <i>16</i> )</li>
+    <li>DC Aware Option ( <i>all nodes considered</i> )</li>
+    <li>ColumnNames to be dumped ( <i>*</i> )</li>
+    <li>Fetch Size per page ( <i>5000</i> )</li>
+    </ul>
+    
 </ul>
 ##How fast are we talking about?
-
+<table>
+<tr><td>~  229 million rows</td><td>128 threads</td><td>134((18) + 116)</td><td>1DC, 6 nodes in DC, RF:3</td></tr>
+<tr><td>~  765 million rows</td><td>128 threads</td><td>487((16) + 471)</td><td>3DCs, 3 nodes in concerened DC, RF:1</td></tr>
+</table>
+<sub>
+the time indicated in column is <b>TotalTime((SetupTime) + EffectiveTime)</b>.
+<br>TotalTime = total time taken by script to dump data.
+<br>SetupTime = time taken to instantiate cluster, create sessions, etc.
+<br>Thus, EffectiveTime to dump the data id TotalTime-SetupTime
+<br>All the indicated numbers denote seconds.
+</sub>
 ##How to use CFS?
 ###Download
 You can download the jar from <a href="https://drive.google.com/file/d/0Bx4phBKd267eNXBncEN2aVlLREk/view?usp=sharing">here</a>.<br>
@@ -80,15 +91,21 @@ public class Main {
 
 }
 ```
-###Explanation
-####Traditional Cassandra Scan
+##Explanation
+###Traditional Cassandra Scan
 ![alt tag](https://github.com/siddv29/cfs/blob/master/images/TraditionalCassandrScan.png)
-####CFS
+###CFS
 ![alt tag](https://github.com/siddv29/cfs/blob/master/images/CFS.png)
+##Upcoming features
+<ul>
+<li>Finegrain token range for more parallelism, if need be.</li>
+<li>Custom load balancing policy for better choice of coordinator.(whitelist alone does no good)</li>
+<li>And a few more.</li>
+To work on features, or request some, kindly see Contributing section.
+</ul>
 ##Contributing
 Hi, if it interests you, 
-<br>kindly pull the code, and go through it.
+<br>Kindly go through the code.
 <br>If you would like to build it more, drop a mail at sidd.verma29.lists@gmail.com
-<br>This was prepared ASAP. Would love to collaborate on it, to increase funcationality.
-
-
+<br>This was prepared ASAP. Would love to collaborate on it, to increase funcationality, and a lot lot more.
+<br>P.S. I strongly feel, with the right size cluster and a few tweaks, we can reduce the effctive dump time of hundred millions of rows to within 10 seconds.
