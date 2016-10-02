@@ -21,6 +21,12 @@ All you need to do is provide <br>
 <table>
 <tr><td>~  229 million rows</td><td>128 threads</td><td>134((18) + 116)</td><td>1DC, 6 nodes in DC, RF:3</td></tr>
 <tr><td>~  765 million rows</td><td>128 threads</td><td>487((16) + 471)</td><td>3DCs, 3 nodes in concerened DC, RF:1</td></tr>
+<sub>
+Time indicated per each entry in the form TotalTime((SetupTime) + EffectiveTime)
+<br>TotalTime is the total time taken by program to scan table
+<br>SetupTime is the time taken by program to instantiate cluster, open sessions, etc.
+<br>EffectiveTime = TotalTime-SetupTime, i.e. the time taken effectively for complete scan
+</sub>
 </table>
 <sub>
 the time indicated in column is <b>TotalTime((SetupTime) + EffectiveTime)</b>.
@@ -101,11 +107,11 @@ public class Main {
 <li>Finegrain token range for more parallelism, if need be.</li>
 <li>Custom load balancing policy for better choice of coordinator.(whitelist alone does no good)</li>
 <li>And a few more.</li>
-To work on features, or request some, kindly see Contributing section.
 </ul>
+To work on features, or request some, kindly see Contributing section.
 ##Contributing
 Hi, if it interests you, 
 <br>Kindly go through the code.
 <br>If you would like to build it more, drop a mail at sidd.verma29.lists@gmail.com
-<br>This was prepared ASAP. Would love to collaborate on it, to increase funcationality, and a lot lot more.
+<br>This was prepared ASAP. Would love to collaborate on it, to increase functionality, and a lot lot more.
 <br>P.S. I strongly feel, with the right size cluster and a few tweaks, we can reduce the effctive dump time of hundred millions of rows to within 10 seconds.
