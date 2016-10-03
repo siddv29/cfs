@@ -13,17 +13,27 @@ import java.util.concurrent.LinkedBlockingQueue;
 /**
  * Created by siddharth on 30/9/16.
  */
-public class Main2_2 {
+public class Main {
     public static void main(String... args) throws Exception{
         LinkedBlockingQueue<Row> queue =new LinkedBlockingQueue<>();
-        CassandraFastFullTableScan cfs = new CassandraFastFullTableScan("mykeyspace.table_name","10.41.55.111",queue,new Options().setUsername("cassandra").setPassword("cassandra"),new PrintStream(new File("/tmp/cfs_round_1.log")));
+
+        CassandraFastFullTableScan cfs =
+                new CassandraFastFullTableScan(args[0],
+                        args[1],queue,
+                        new Options().setUsername("cassandra").setPassword("cassandra"),
+                        new PrintStream(new File(args[2])));
+
         CountDownLatch countDownLatch = cfs.start();
+
         new NotifyWhenCFSFinished(countDownLatch).start();
-        int remainingTerminals=16;//default number of terminals to be added to queue
+
         Row row;
         int counter=0;
         while(! ((row = queue.take()) instanceof RowTerminal)){
             System.out.println(++counter+":"+row);
+            /*
+              you can use row.getString("column1") and so on
+            */
         }
     }
 
@@ -35,18 +45,15 @@ public class Main2_2 {
         }
 
         public void run(){
-            System.out.println("Await started");
+            System.out.println("Waiting for CFS to complete");
             try{
                 latch.await();
             }catch (Exception e1){
-                //what to do
+                //ignore
             }
-            System.out.println("End of latch awaiting");
-            System.out.println("Proceed");
-
+            System.out.println("CFS completed");
         }
 
     }
 
 }
-
