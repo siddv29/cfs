@@ -47,7 +47,16 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class Main {
-    public static void main(String... args) throws Exception{
+    public static void main(String... args) throws Exception{    
+        if(args.length != 6){
+            args = new String[6];
+            args[0]="ks.table_name"; //table identifier
+            args[1]="10.41.55.111"; //IP of a cassandra node
+            args[2]="cassandra"; //username
+            args[3]="cassandra"; //password
+            args[4]="10"; //number of threads
+            args[5]="/tmp/log"; //log file
+        }
         LinkedBlockingQueue<Row> queue =new LinkedBlockingQueue<>();
         
         CassandraFastFullTableScan cfs = 
