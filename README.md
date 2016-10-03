@@ -96,6 +96,7 @@ public class Main {
 ![alt tag](https://github.com/siddv29/cfs/blob/master/images/TraditionalCassandrScan.png)
 ###CFS
 ![alt tag](https://github.com/siddv29/cfs/blob/master/images/CFS.png)
+![alt tag](https://github.com/siddv29/cfs/blob/master/images/tokenRangeSplit.png)
 ##Upcoming features
 <ul>
 <li>Finegrain token range for more parallelism, if need be.</li>
