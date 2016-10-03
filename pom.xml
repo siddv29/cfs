@@ -7,7 +7,6 @@
     <groupId>com.cassandra.utility</groupId>
     <artifactId>cfs</artifactId>
     <version>1.0-SNAPSHOT</version>
-
     <dependencies>
         <dependency>
             <groupId>com.datastax.cassandra</groupId>

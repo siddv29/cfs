@@ -15,7 +15,7 @@ public class Main2 {
     public static void main(String... args){
         if(args.length == 0){
             args = new String [7];
-            args[0]="ks.tab1"; //table identifier
+            args[0]="cams.filter_attribute_mapping"; //table identifier
             /*
             Cluster 1
             10.41.55.111
@@ -30,16 +30,17 @@ public class Main2 {
             10.41.55.119
             10.41.55.118
              */
-            args[1]="10.41.55.111"/*"localhost"*/; //contactPoint
+            args[1]="10.41.55.117"/*"localhost"*/; //contactPoint
             args[2]="cassandra"; //username
             args[3]="cassandra"; //password
-            args[4]="10";//number of consumers
+            args[4]="1";//number of consumers
             args[5]="100";//fetch size
+            args[6]=null;
         }
         LinkedBlockingQueue<Row> resultQueue = new LinkedBlockingQueue<>();
-        Thread dummyConsumer = new DummyMainConsumer(resultQueue,Integer.parseInt(args[4]));
+        Thread dummyConsumer = new DummyMainConsumer(resultQueue);
         dummyConsumer.start();
-        CassandraFastFullTableScan cfs = new CassandraFastFullTableScan(args[0],args[1],resultQueue,new Options().setUsername(args[2]).setPassword(args[3]).setNumberOfThreads(Integer.parseInt(args[4])).setFetchSize(Integer.parseInt(args[5]))/*,false*/,System.out);
+        CassandraFastFullTableScan cfs = new CassandraFastFullTableScan(args[0],args[1],resultQueue,new Options().setUsername(args[2]).setPassword(args[3]).setNumberOfThreads(Integer.parseInt(args[4])).setFetchSize(Integer.parseInt(args[5])).setDc(args[6]==null?null:args[6])/*,false*/,System.out);
         CountDownLatch countDownLatch = cfs.start();
 
         try {
@@ -54,13 +55,11 @@ public class Main2 {
     }
     static class DummyMainConsumer extends Thread {
         LinkedBlockingQueue<Row> resultQueue;
-        int sentinelRowMarker;
         long countRows=0;
         long secondsCounter = 0;
         boolean stopCounting = false;
-        public DummyMainConsumer(LinkedBlockingQueue<Row> resultQueue,int sentinelRowMarker) {
+        public DummyMainConsumer(LinkedBlockingQueue<Row> resultQueue) {
             this.resultQueue = resultQueue;
-            this.sentinelRowMarker = sentinelRowMarker;
         }
 
         public void run() {
@@ -76,7 +75,8 @@ public class Main2 {
                     System.out.println("COUNT FINISHED:"+secondsCounter+":"+countRows);
                 }
             }).start();
-            while(sentinelRowMarker > 0){
+
+            while(!stopCounting){
                 try {
                     row = resultQueue.take();
                 }catch (Exception e){
@@ -84,7 +84,7 @@ public class Main2 {
                     System.exit(1);
                 }
                 if(row instanceof RowTerminal){
-                    --sentinelRowMarker;
+                    break;
                 }else {
                     ++countRows;
                 }

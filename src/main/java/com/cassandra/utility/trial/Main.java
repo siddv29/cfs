@@ -17,11 +17,21 @@ public class Main {
     public static void main(String... args) throws Exception{
         LinkedBlockingQueue<Row> queue =new LinkedBlockingQueue<>();
 
+        if(args.length != 6){
+            args = new String[6];
+            args[0]="ks.table_name"; //table identifier
+            args[1]="10.41.55.111"; //IP of a cassandra node
+            args[2]="cassandra"; //username
+            args[3]="cassandra"; //password
+            args[4]="10"; //number of threads
+            args[5]="/tmp/log"; //log file
+        }
+
         CassandraFastFullTableScan cfs =
                 new CassandraFastFullTableScan(args[0],
                         args[1],queue,
-                        new Options().setUsername("cassandra").setPassword("cassandra"),
-                        new PrintStream(new File(args[2])));
+                        new Options().setUsername(args[2]).setPassword(args[3]).setNumberOfThreads(Integer.parseInt(args[4])),
+                        new PrintStream(new File(args[5])));
 
         CountDownLatch countDownLatch = cfs.start();
 
