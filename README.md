@@ -17,7 +17,7 @@ All you need to do is provide <br>
     </ul>
     
 </ul>
-##How fast are we talking about?
+<h2>How fast are we talking about?</h2>
 <table>
 <tr><td>~  229 million rows</td><td>128 threads</td><td>134((18) + 116)</td><td>1DC, 6 nodes in DC, RF:3</td></tr>
 <tr><td>~  765 million rows</td><td>128 threads</td><td>487((16) + 471)</td><td>3DCs, 3 nodes in concerened DC, RF:1</td></tr>
@@ -29,11 +29,12 @@ the time indicated in column is <b>TotalTime((SetupTime) + EffectiveTime)</b>.
 <br>Thus, EffectiveTime to dump the data id TotalTime-SetupTime
 <br>All the indicated numbers denote seconds.
 </sub>
-##How to use CFS?
-###Download
-You can download the jar from <a href="https://drive.google.com/file/d/0Bx4phBKd267eRTNQcE14MGdMWEU/view?usp=sharing">here</a>.<br>
-Or, you may download the source file and run ```mvn clean install``` to use ```cfs-1.0-SNAPSHOT-full.jar```
-###Sample Program
+<h2>How to use CFS?</h2>
+<h3>Download</h3>
+<p>You can download the jar from <a href="https://drive.google.com/file/d/0Bx4phBKd267eRTNQcE14MGdMWEU/view?usp=sharing">here</a>.<br>
+Or, you may download the source file and run <b>mvn clean install</b> to use <b>cfs-1.0-SNAPSHOT-full.jar</b> </p>
+<h3>Sample Program</h3>
+
 ```
 package com.cassandra.utility.trial;
 
@@ -48,7 +49,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class Main {
     public static void main(String... args) throws Exception{
-        LinkedBlockingQueue<Row> queue =new LinkedBlockingQueue<>();
+        LinkedBlockingQueue<Row> queue =new LinkedBlockingQueue<Row>();
         
         CassandraFastFullTableScan cfs = 
                 new CassandraFastFullTableScan("mykeyspace.table_name",
@@ -91,22 +92,22 @@ public class Main {
 
 }
 ```
-##Explanation
-###Traditional Cassandra Scan
+<h2>Explanation</h2>
+<h3>Traditional Cassandra Scan</h3>
 ![alt tag](https://github.com/siddv29/cfs/blob/master/images/TraditionalCassandrScan.png)
-###CFS
+<h3>CFS</h3>
 ![alt tag](https://github.com/siddv29/cfs/blob/master/images/CFS.png)
 ![alt tag](https://github.com/siddv29/cfs/blob/master/images/tokenRangeSplit.png)
-##Upcoming features
-<ul>
+<h2>Upcoming features</h2>
+<p><ul>
 <li>Finegrain token range for more parallelism, if need be.</li>
 <li>Custom load balancing policy for better choice of coordinator.(whitelist alone does no good)</li>
 <li>And a few more.</li>
 </ul>
-To work on features, or request some, kindly see Contributing section.
-##Contributing
-Hi, if it interests you, 
+To work on features, or request some, kindly see Contributing section.</p>
+<h2>Contributing</h2>
+<p>Hi, if it interests you, 
 <br>Kindly go through the code.
 <br>If you would like to build it more, drop a mail at sidd.verma29.lists@gmail.com
 <br>This was prepared ASAP. Would love to collaborate on it, to increase functionality, and a lot lot more.
-<br>P.S. I strongly feel, with the right size cluster and a few tweaks, we can reduce the effctive dump time of hundred millions of rows to within 10 seconds.
+<br>P.S. I strongly feel, with the right size cluster and a few tweaks, we can reduce the effctive dump time of hundred millions of rows to within 10 seconds.</p>
