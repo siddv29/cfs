@@ -94,10 +94,10 @@ public class Main {
 ```
 <h2>Explanation</h2>
 <h3>Traditional Cassandra Scan</h3>
-![alt tag](https://github.com/siddv29/cfs/blob/master/images/TraditionalCassandrScan.png)
+<img src="https://github.com/siddv29/cfs/blob/master/images/TraditionalCassandrScan.png"/>
 <h3>CFS</h3>
-![alt tag](https://github.com/siddv29/cfs/blob/master/images/CFS.png)
-![alt tag](https://github.com/siddv29/cfs/blob/master/images/tokenRangeSplit.png)
+<img src="https://github.com/siddv29/cfs/blob/master/images/CFS.png"/>
+<img src="https://github.com/siddv29/cfs/blob/master/images/tokenRangeSplit.png"/>
 <h2>Upcoming features</h2>
 <p><ul>
 <li>Finegrain token range for more parallelism, if need be.</li>
