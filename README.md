@@ -108,6 +108,6 @@ To work on features, or request some, kindly see Contributing section.</p>
 <h2>Contributing</h2>
 <p>Hi, if it interests you, 
 <br>Kindly go through the code.
-<br>If you would like to build it more, drop a mail at sidd.verma29.lists@gmail.com
+<br>If you would like to build it more, drop a mail at <b>sidd.verma29.list@gmail.com</b>
 <br>This was prepared ASAP. Would love to collaborate on it, to increase functionality, and a lot lot more.
 <br>P.S. I strongly feel, with the right size cluster and a few tweaks, we can reduce the effctive dump time of hundred millions of rows to within 10 seconds.</p>
